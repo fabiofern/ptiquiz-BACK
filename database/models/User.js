@@ -1,10 +1,12 @@
-const mongoose = require("mongoose");
+const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
 	// CHAMPS PRINCIPAUX
 	email: { type: String, required: true, unique: true }, // unique: true suffit !
 	password: { type: String, required: true },
 	username: String,
+	email: String,
+	password: String,
 	token: String,
 	avatar: String,
 

@@ -22,6 +22,7 @@ app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
 // Routes API ensuite
+
 app.use('/quizz', quizzRoutes);
 app.use("/users", usersRouter);
 app.use("/", indexRouter);
