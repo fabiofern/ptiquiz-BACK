@@ -68,8 +68,6 @@ router.post("/signup", (req, res) => {
 	})
 });
 
-
-
 // Dans routes/users.js - ajoutez cette route :
 router.put("/locationPermissions", async (req, res) => {
 	try {
@@ -108,8 +106,6 @@ router.put("/locationPermissions", async (req, res) => {
 	}
 });
 
-
-
 router.post("/signin", async (req, res) => {
 	if (!checkBody(req.body, ["email", "password"])) {
 		return res.json({ result: false, error: "Missing or empty fields" });
@@ -134,7 +130,7 @@ router.post("/signin", async (req, res) => {
 					username: updatedUser.username,
 					avatar: updatedUser.avatar,
 					_id: updatedUser._id,
-					// 🎯 AJOUT DES CHAMPS MANQUANTS
+					//  AJOUT DES CHAMPS MANQUANTS
 					score: updatedUser.score || 0,
 					completedQuizzes: updatedUser.completedQuizzes || {},
 					unlockedQuizzes: updatedUser.unlockedQuizzes || [],
@@ -163,10 +159,6 @@ router.post("/signin", async (req, res) => {
 	}
 });
 
-
-
-
-
 //// ROUTE UPDATEPROFIL : route pour modifier le username et l'image de l'avatar via le lien en BDD qui fait référence à l'image hébergée sur cloudinary
 router.put("/updateProfil", async (req, res) => {
 	try {
@@ -191,7 +183,7 @@ router.put("/updateProfil", async (req, res) => {
 			update.avatar = avatar;
 		}
 
-		// 🎯 MODIFICATION : Utiliser findOneAndUpdate pour récupérer les données
+		//  MODIFICATION : Utiliser findOneAndUpdate pour récupérer les données
 		const updatedUser = await User.findOneAndUpdate(
 			{ token },
 			update,
@@ -202,7 +194,7 @@ router.put("/updateProfil", async (req, res) => {
 			return res.json({ result: false, error: "Utilisateur introuvable" });
 		}
 
-		// 🎯 RETOURNER LES DONNÉES MISES À JOUR
+		//  RETOURNER LES DONNÉES MISES À JOUR
 		res.json({
 			result: true,
 			message: "Profil mis à jour",
@@ -215,6 +207,7 @@ router.put("/updateProfil", async (req, res) => {
 		res.json({ result: false, error: "Erreur interne", details: error.message });
 	}
 });
+
 //// ROUTE DELETE TOKEN : route pour supprimer le token de l'utilisateur
 router.put("/deleteToken", async (req, res) => {
 	try {

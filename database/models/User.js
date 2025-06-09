@@ -1,33 +1,33 @@
 const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema({
-	// ✅ CHAMPS PRINCIPAUX
+	// CHAMPS PRINCIPAUX
 	email: { type: String, required: true, unique: true }, // unique: true suffit !
 	password: { type: String, required: true },
 	username: String,
 	token: String,
 	avatar: String,
 
-	// ✅ SYSTÈME QUIZ
+	// SYSTÈME QUIZ
 	score: { type: Number, default: 0 },
 	completedQuizzes: { type: Object, default: {} },
 	unlockedQuizzes: { type: Array, default: [] },
 	scenarios: { type: Array, default: [] },
 
-	// ✅ PERMISSIONS GÉOLOCALISATION
+	// PERMISSIONS GÉOLOCALISATION
 	locationPermissions: {
 		foreground: { type: Boolean, default: false },
 		background: { type: Boolean, default: false }
 	},
 
-	// ✅ RÉCOMPENSES
+	// RÉCOMPENSES
 	rewards: {
 		medals: { type: Array, default: [] },
 		trophies: { type: Array, default: [] },
 		titles: { type: Array, default: [] }
 	},
 
-	// ✅ STATISTIQUES
+	// STATISTIQUES
 	statistics: {
 		totalQuizzesCompleted: { type: Number, default: 0 },
 		perfectQuizzes: { type: Number, default: 0 },
@@ -38,10 +38,7 @@ const userSchema = new mongoose.Schema({
 	timestamps: true
 });
 
-// ❌ SUPPRIMEZ CETTE LIGNE (doublon avec unique: true)
-// userSchema.index({ email: 1 });
 
-// ✅ GARDEZ JUSTE CELUI-CI
 userSchema.index({ token: 1 });
 
 module.exports = mongoose.model("users", userSchema);

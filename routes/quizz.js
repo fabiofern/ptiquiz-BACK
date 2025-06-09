@@ -45,7 +45,7 @@ router.get('/', async (req, res) => {
                 hashtags: q.hashtags,
                 lieuxProches: q.lieuxProches,
                 anecdoteBonus: q.anecdoteBonus,
-                unlockRadius: 100, // Valeur par défaut
+                unlockRadius: 1000000000000000000, // Valeur par défaut
                 totalPoints,
                 questionCount,
                 // ✅ Convertir les coordonnées string en numbers pour la carte
