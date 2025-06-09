@@ -57,9 +57,9 @@ router.post("/signup", (req, res) => {
 				email: req.body.email,
 				password: bcrypt.hashSync(req.body.password, 10),
 				token: uid2(32),
-				totalPoints: 0,
+				// totalPoints: 0,
 				avatar: null,
-				scenarios: [],
+				// scenarios: [],
 			});
 			newUser.save().then((data) => {
 				res.json({ result: true, token: data.token, _id: data._id });
@@ -89,7 +89,7 @@ router.post("/signin", async (req, res) => {
 				return res.json({
 					result: true,
 					token: updatedUser.token, // On envoie bien le nouveau token
-					username: updatedUser.username,
+					// username: updatedUser.username,
 					avatar: updatedUser.avatar,
 					_id: updatedUser._id,
 				});
