@@ -1,10 +1,47 @@
 const mongoose = require("mongoose");
 
-const schema = new mongoose.Schema({
-	email: { type: String, required: true, unique: true },
+const userSchema = new mongoose.Schema({
+	// ✅ CHAMPS PRINCIPAUX
+	email: { type: String, required: true, unique: true }, // unique: true suffit !
 	password: { type: String, required: true },
-	avatar: { type: String, default: null },
-	token: { type: String, required: true, unique: true },
+	username: String,
+	token: String,
+	avatar: String,
+
+	// ✅ SYSTÈME QUIZ
+	score: { type: Number, default: 0 },
+	completedQuizzes: { type: Object, default: {} },
+	unlockedQuizzes: { type: Array, default: [] },
+	scenarios: { type: Array, default: [] },
+
+	// ✅ PERMISSIONS GÉOLOCALISATION
+	locationPermissions: {
+		foreground: { type: Boolean, default: false },
+		background: { type: Boolean, default: false }
+	},
+
+	// ✅ RÉCOMPENSES
+	rewards: {
+		medals: { type: Array, default: [] },
+		trophies: { type: Array, default: [] },
+		titles: { type: Array, default: [] }
+	},
+
+	// ✅ STATISTIQUES
+	statistics: {
+		totalQuizzesCompleted: { type: Number, default: 0 },
+		perfectQuizzes: { type: Number, default: 0 },
+		streakDays: { type: Number, default: 0 },
+		lastPlayDate: Date
+	}
+}, {
+	timestamps: true
 });
 
-module.exports = mongoose.models.users || mongoose.model("users", schema);
+// ❌ SUPPRIMEZ CETTE LIGNE (doublon avec unique: true)
+// userSchema.index({ email: 1 });
+
+// ✅ GARDEZ JUSTE CELUI-CI
+userSchema.index({ token: 1 });
+
+module.exports = mongoose.model("users", userSchema);

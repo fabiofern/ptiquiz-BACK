@@ -1,6 +1,6 @@
 var express = require("express");
 var router = express.Router();
-const User = require("../database/models/users"); // chemin correct selon ton architecture
+const User = require("../database/models/User"); // chemin correct selon ton architecture
 const bcrypt = require("bcrypt");
 const uid2 = require("uid2");
 const { checkBody } = require("../modules/checkBody");
@@ -67,7 +67,49 @@ router.post("/signup", (req, res) => {
 		}
 	})
 });
-//// ROUTE SIGNIN : route pour connecter un utilisateur
+
+
+
+// Dans routes/users.js - ajoutez cette route :
+router.put("/locationPermissions", async (req, res) => {
+	try {
+		const { token, foreground, background } = req.body;
+
+		if (!token) {
+			return res.json({ result: false, error: "Token manquant" });
+		}
+
+		const updatedUser = await User.findOneAndUpdate(
+			{ token },
+			{
+				$set: {
+					locationPermissions: {
+						foreground: foreground || false,
+						background: background || false
+					}
+				}
+			},
+			{ new: true }
+		);
+
+		if (!updatedUser) {
+			return res.json({ result: false, error: "Utilisateur introuvable" });
+		}
+
+		res.json({
+			result: true,
+			message: "Permissions mises à jour",
+			locationPermissions: updatedUser.locationPermissions
+		});
+
+	} catch (error) {
+		console.error("Erreur permissions:", error);
+		res.json({ result: false, error: "Erreur interne" });
+	}
+});
+
+
+
 router.post("/signin", async (req, res) => {
 	if (!checkBody(req.body, ["email", "password"])) {
 		return res.json({ result: false, error: "Missing or empty fields" });
@@ -88,10 +130,26 @@ router.post("/signin", async (req, res) => {
 			if (updatedUser) {
 				return res.json({
 					result: true,
-					token: updatedUser.token, // On envoie bien le nouveau token
-					// username: updatedUser.username,
+					token: updatedUser.token,
+					username: updatedUser.username,
 					avatar: updatedUser.avatar,
 					_id: updatedUser._id,
+					// 🎯 AJOUT DES CHAMPS MANQUANTS
+					score: updatedUser.score || 0,
+					completedQuizzes: updatedUser.completedQuizzes || {},
+					unlockedQuizzes: updatedUser.unlockedQuizzes || [],
+					locationPermissions: updatedUser.locationPermissions || null,
+					rewards: updatedUser.rewards || {
+						medals: [],
+						trophies: [],
+						titles: []
+					},
+					statistics: updatedUser.statistics || {
+						totalQuizzesCompleted: 0,
+						perfectQuizzes: 0,
+						streakDays: 0,
+						lastPlayDate: null
+					}
 				});
 			} else {
 				return res.json({ result: false, error: "Failed to update token" });
@@ -104,6 +162,11 @@ router.post("/signin", async (req, res) => {
 		return res.status(500).json({ result: false, error: "Server error" });
 	}
 });
+
+
+
+
+
 //// ROUTE UPDATEPROFIL : route pour modifier le username et l'image de l'avatar via le lien en BDD qui fait référence à l'image hébergée sur cloudinary
 router.put("/updateProfil", async (req, res) => {
 	try {
@@ -127,15 +190,27 @@ router.put("/updateProfil", async (req, res) => {
 		if (avatar) {
 			update.avatar = avatar;
 		}
-		// Recherche l'utilisateur avec le token
-		const actionUpdate = await User.updateOne({ token }, update);
-		console.log(actionUpdate);
 
-		if (actionUpdate.modifiedCount === 0) {
-			res.json({ result: false, message: "Aucune modification apportée" });
-		} else {
-			res.json({ result: true, message: "Profil mis à jour" });
+		// 🎯 MODIFICATION : Utiliser findOneAndUpdate pour récupérer les données
+		const updatedUser = await User.findOneAndUpdate(
+			{ token },
+			update,
+			{ new: true } // Retourne l'utilisateur mis à jour
+		);
+
+		if (!updatedUser) {
+			return res.json({ result: false, error: "Utilisateur introuvable" });
 		}
+
+		// 🎯 RETOURNER LES DONNÉES MISES À JOUR
+		res.json({
+			result: true,
+			message: "Profil mis à jour",
+			// Données pour le frontend
+			username: updatedUser.username,
+			avatar: updatedUser.avatar
+		});
+
 	} catch (error) {
 		res.json({ result: false, error: "Erreur interne", details: error.message });
 	}
