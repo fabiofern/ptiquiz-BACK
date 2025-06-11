@@ -1,9 +1,8 @@
 const mongoose = require('mongoose');
 
-const userSchema = new mongoose.Schema({
-	// CHAMPS PRINCIPAUX
-	email: { type: String, required: true, unique: true }, // unique: true suffit !
-	password: { type: String, required: true },
+
+const userSchema = mongoose.Schema({
+	// 👤 Informations de base (existantes)
 	username: String,
 	email: String,
 	password: String,

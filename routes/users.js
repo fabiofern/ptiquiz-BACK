@@ -1,12 +1,14 @@
 var express = require("express");
 var router = express.Router();
+const jwt = require('jsonwebtoken');
 const User = require("../database/models/User"); // chemin correct selon ton architecture
 const bcrypt = require("bcrypt");
 const uid2 = require("uid2");
 const { checkBody } = require("../modules/checkBody");
+const verifySecureToken = require("../middlewares/verifySecureToken");
 
 
-router.get("/profile/:token", async (req, res) => {
+router.get("/profile/:token",verifySecureToken, async (req, res) => {
 	try {
 		const user = await User.findOne({ token: req.params.token });
 
@@ -62,7 +64,8 @@ router.post("/signup", (req, res) => {
 				// scenarios: [],
 			});
 			newUser.save().then((data) => {
-				res.json({ result: true, token: data.token, _id: data._id });
+				const secureToken = jwt.sign({ userId: data._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+				res.json({ result: true, token: data.token, secureToken, _id: data._id });
 			});
 		}
 	})
@@ -124,9 +127,11 @@ router.post("/signin", async (req, res) => {
 			);
 
 			if (updatedUser) {
+				const secureToken = jwt.sign({ userId: updatedUser._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 				return res.json({
 					result: true,
 					token: updatedUser.token,
+					secureToken,
 					username: updatedUser.username,
 					avatar: updatedUser.avatar,
 					_id: updatedUser._id,
