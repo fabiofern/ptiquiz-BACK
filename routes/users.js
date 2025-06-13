@@ -1,12 +1,14 @@
 var express = require("express");
 var router = express.Router();
+const jwt = require('jsonwebtoken');
 const User = require("../database/models/User"); // chemin correct selon ton architecture
 const bcrypt = require("bcrypt");
 const uid2 = require("uid2");
 const { checkBody } = require("../modules/checkBody");
+const verifySecureToken = require("../middlewares/verifySecureToken");
 
 
-router.get("/profile/:token", async (req, res) => {
+router.get("/profile/:token", verifySecureToken, async (req, res) => {
 	try {
 		const user = await User.findOne({ token: req.params.token });
 
@@ -57,18 +59,17 @@ router.post("/signup", (req, res) => {
 				email: req.body.email,
 				password: bcrypt.hashSync(req.body.password, 10),
 				token: uid2(32),
-				totalPoints: 0,
+				// totalPoints: 0,
 				avatar: null,
-				scenarios: [],
+				// scenarios: [],
 			});
 			newUser.save().then((data) => {
-				res.json({ result: true, token: data.token, _id: data._id });
+				const secureToken = jwt.sign({ userId: data._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
+				res.json({ result: true, token: data.token, secureToken, _id: data._id });
 			});
 		}
 	})
 });
-
-
 
 // Dans routes/users.js - ajoutez cette route :
 router.put("/locationPermissions", async (req, res) => {
@@ -108,8 +109,6 @@ router.put("/locationPermissions", async (req, res) => {
 	}
 });
 
-
-
 router.post("/signin", async (req, res) => {
 	if (!checkBody(req.body, ["email", "password"])) {
 		return res.json({ result: false, error: "Missing or empty fields" });
@@ -128,13 +127,15 @@ router.post("/signin", async (req, res) => {
 			);
 
 			if (updatedUser) {
+				const secureToken = jwt.sign({ userId: updatedUser._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
 				return res.json({
 					result: true,
 					token: updatedUser.token,
+					secureToken,
 					username: updatedUser.username,
 					avatar: updatedUser.avatar,
 					_id: updatedUser._id,
-					// 🎯 AJOUT DES CHAMPS MANQUANTS
+					//  AJOUT DES CHAMPS MANQUANTS
 					score: updatedUser.score || 0,
 					completedQuizzes: updatedUser.completedQuizzes || {},
 					unlockedQuizzes: updatedUser.unlockedQuizzes || [],
@@ -163,10 +164,6 @@ router.post("/signin", async (req, res) => {
 	}
 });
 
-
-
-
-
 //// ROUTE UPDATEPROFIL : route pour modifier le username et l'image de l'avatar via le lien en BDD qui fait référence à l'image hébergée sur cloudinary
 router.put("/updateProfil", async (req, res) => {
 	try {
@@ -191,7 +188,7 @@ router.put("/updateProfil", async (req, res) => {
 			update.avatar = avatar;
 		}
 
-		// 🎯 MODIFICATION : Utiliser findOneAndUpdate pour récupérer les données
+		//  MODIFICATION : Utiliser findOneAndUpdate pour récupérer les données
 		const updatedUser = await User.findOneAndUpdate(
 			{ token },
 			update,
@@ -202,7 +199,7 @@ router.put("/updateProfil", async (req, res) => {
 			return res.json({ result: false, error: "Utilisateur introuvable" });
 		}
 
-		// 🎯 RETOURNER LES DONNÉES MISES À JOUR
+		//  RETOURNER LES DONNÉES MISES À JOUR
 		res.json({
 			result: true,
 			message: "Profil mis à jour",
@@ -215,7 +212,6 @@ router.put("/updateProfil", async (req, res) => {
 		res.json({ result: false, error: "Erreur interne", details: error.message });
 	}
 });
-
 
 //// ROUTE DELETE TOKEN : route pour supprimer le token de l'utilisateur
 router.put("/deleteToken", async (req, res) => {

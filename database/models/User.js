@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 
+
 const userSchema = mongoose.Schema({
 	// Dans models/User.js (ajouter ces champs à ton schema existant)
 	socialSettings: {
@@ -56,46 +57,24 @@ const userSchema = mongoose.Schema({
 	password: String,
 	token: String,
 	avatar: String,
-	hasProfile: String,
 
-	// 📍 Permissions géolocalisation (existantes)
+	// SYSTÈME QUIZ
+	score: { type: Number, default: 0 },
+	completedQuizzes: { type: Object, default: {} },
+	unlockedQuizzes: { type: Array, default: [] },
+	scenarios: { type: Array, default: [] },
+
+	// PERMISSIONS GÉOLOCALISATION
 	locationPermissions: {
 		foreground: { type: Boolean, default: false },
 		background: { type: Boolean, default: false }
 	},
 
-	// 🎯 NOUVEAUX CHAMPS QUIZ
-	// Score total de l'utilisateur
-	score: {
-		type: Number,
-		default: 0
-	},
-
-	// Quiz débloqués (array d'IDs de quiz)
-	unlockedQuizzes: [{
-		type: String, // ID du quiz en string
-		default: []
-	}],
-
-	// Quiz complétés avec détails
-	completedQuizzes: {
-		type: Map,
-		of: {
-			name: String,           // Nom du quiz
-			score: Number,          // Score obtenu
-			totalPoints: Number,    // Points totaux possibles
-			percentage: Number,     // Pourcentage de réussite
-			badge: String,          // Badge débloqué
-			completedAt: Date,      // Date de completion
-			theme: String,          // Thème du quiz
-			answers: [{             // Détail des réponses (optionnel)
-				questionId: String,
-				selectedAnswer: Number,
-				isCorrect: Boolean,
-				points: Number
-			}]
-		},
-		default: new Map()
+	// RÉCOMPENSES
+	rewards: {
+		medals: { type: Array, default: [] },
+		trophies: { type: Array, default: [] },
+		titles: { type: Array, default: [] }
 	},
 
 	// 🏆 Statistiques et récompenses
