@@ -1,6 +1,55 @@
 const mongoose = require('mongoose');
 
 const userSchema = mongoose.Schema({
+	// Dans models/User.js (ajouter ces champs à ton schema existant)
+	socialSettings: {
+		// Paramètres de visibilité existants
+		visibleWhenMoving: {
+			type: Boolean,
+			default: false
+		},
+		minSpeed: {
+			type: Number,
+			default: 2.0 // km/h
+		},
+		autoHideDelay: {
+			type: Number,
+			default: 180 // secondes (3 minutes)
+		},
+		// NOUVEAUX paramètres map sociale
+		mapVisibility: {
+			type: Boolean,
+			default: true
+		},
+		showProfile: {
+			type: Boolean,
+			default: true
+		},
+		shareLocation: {
+			type: Boolean,
+			default: true
+		},
+		visibilityRadius: {
+			type: Number,
+			default: 5, // kilomètres
+			min: 1,
+			max: 50
+		},
+		allowMessages: {
+			type: Boolean,
+			default: true
+		}
+	},
+	safePlace: {
+		address: String,        // Adresse saisie par l'user
+		latitude: Number,       // Coordonnée latitude
+		longitude: Number,      // Coordonnée longitude  
+		radius: {              // Rayon de protection en mètres
+			type: Number,
+			default: 200
+		},
+		createdAt: Date        // Date de création
+	},
 	// 👤 Informations de base (existantes)
 	username: String,
 	email: String,
@@ -213,6 +262,29 @@ userSchema.methods.getRecommendedThemes = function () {
 	});
 
 	return recommendations;
+};
+userSchema.methods.canBeSeenBy = function (otherUser) {
+	return this.socialSettings.mapVisibility &&
+		this.socialSettings.shareLocation &&
+		this.socialSettings.showProfile;
+};
+
+// Méthode pour obtenir les infos publiques pour la map
+userSchema.methods.getPublicMapInfo = function () {
+	return {
+		id: this._id,
+		username: this.username,
+		avatar: this.avatar,
+		score: this.score, // Utilise ton score existant
+		stats: {
+			totalQuizCompleted: this.stats.totalQuizCompleted,
+			averageScore: this.stats.averageScore,
+			bestStreak: this.stats.bestStreak
+		},
+		badges: this.badges.slice(-3), // Les 3 derniers badges
+		canReceiveMessages: this.socialSettings.allowMessages,
+		lastPlayedAt: this.stats.lastPlayedAt
+	};
 };
 
 const User = mongoose.model('users', userSchema);

@@ -215,6 +215,8 @@ router.put("/updateProfil", async (req, res) => {
 		res.json({ result: false, error: "Erreur interne", details: error.message });
 	}
 });
+
+
 //// ROUTE DELETE TOKEN : route pour supprimer le token de l'utilisateur
 router.put("/deleteToken", async (req, res) => {
 	try {
@@ -232,5 +234,134 @@ router.put("/deleteToken", async (req, res) => {
 		res.status(500).json({ result: false, message: "Erreur serveur" });
 	}
 });
+
+
+router.post('/test-activate', async (req, res) => {
+	try {
+		console.log('🧪 Activation des faux users pour test...');
+
+		// Positions dans Paris pour les faux users
+		const testPositions = [
+			{
+				username: "JulieQuizPro",
+				coordinates: { latitude: 48.8606, longitude: 2.3472 },
+				speed: 3.5 // En mouvement à pied
+			},
+			{
+				username: "AishaVeteran",
+				coordinates: { latitude: 48.8676, longitude: 2.3633 },
+				speed: 4.2 // En mouvement
+			},
+			{
+				username: "LucasChampion",
+				coordinates: { latitude: 48.8540, longitude: 2.3359 },
+				speed: 2.8 // En mouvement lent
+			},
+			{
+				username: "EmmaExploratrice",
+				coordinates: { latitude: 48.8420, longitude: 2.3219 },
+				speed: 5.1 // En mouvement rapide
+			},
+			{
+				username: "KarimStriker",
+				coordinates: { latitude: 48.8826, longitude: 2.3379 },
+				speed: 3.0 // En mouvement
+			}
+		];
+
+		let activatedCount = 0;
+
+		for (const testUser of testPositions) {
+			try {
+				// Trouver l'utilisateur par username
+				const user = await User.findOne({ username: testUser.username });
+				if (!user) {
+					console.log(`❌ User ${testUser.username} non trouvé`);
+					continue;
+				}
+
+				// Flouter les coordonnées comme en vrai
+				const blurredCoords = blurCoordinates(
+					testUser.coordinates.latitude,
+					testUser.coordinates.longitude
+				);
+
+				// Créer/mettre à jour UserLocation
+				await UserLocation.findOneAndUpdate(
+					{ userId: user._id },
+					{
+						coordinates: blurredCoords,
+						speed: testUser.speed,
+						isVisible: true, // Forcer visible pour le test
+						lastMovement: new Date(),
+						lastUpdate: new Date()
+					},
+					{ upsert: true, new: true }
+				);
+
+				activatedCount++;
+				console.log(`✅ ${testUser.username} activé à ${blurredCoords.latitude}, ${blurredCoords.longitude}`);
+
+			} catch (error) {
+				console.error(`❌ Erreur activation ${testUser.username}:`, error);
+			}
+		}
+
+		res.status(200).json({
+			success: true,
+			message: `${activatedCount} utilisateurs activés pour le test`,
+			activatedUsers: activatedCount,
+			totalPositions: testPositions.length
+		});
+
+	} catch (error) {
+		console.error('❌ Erreur activation test users:', error);
+		res.status(500).json({ error: 'Erreur serveur' });
+	}
+});
+
+// 🧪 GET /users/test-status 
+router.get('/test-status', async (req, res) => {
+	try {
+		console.log('🔍 Vérification statut test...');
+
+		// Version simple sans populate
+		const activeUsers = await UserLocation.find({ isVisible: true });
+
+		console.log(`📊 ${activeUsers.length} utilisateurs actifs trouvés`);
+
+		res.status(200).json({
+			success: true,
+			activeUsersCount: activeUsers.length,
+			users: activeUsers
+		});
+
+	} catch (error) {
+		console.error('❌ Erreur statut test:', error.message);
+		console.error('Stack:', error.stack);
+		res.status(500).json({
+			error: 'Erreur serveur',
+			details: error.message
+		});
+	}
+});
+
+// 🧹 POST /users/test-cleanup - Nettoyer les données de test
+router.post('/test-cleanup', async (req, res) => {
+	try {
+		const result = await UserLocation.deleteMany({});
+
+		res.status(200).json({
+			success: true,
+			message: `${result.deletedCount} positions supprimées`,
+			deletedCount: result.deletedCount
+		});
+
+	} catch (error) {
+		console.error('❌ Erreur nettoyage test:', error);
+		res.status(500).json({ error: 'Erreur serveur' });
+	}
+});
+
 
 module.exports = router;

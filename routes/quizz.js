@@ -135,7 +135,7 @@ router.put('/unlock/:userId', async (req, res) => {
                 );
 
                 // 🎯 RAYON ÉNORME pour test
-                const unlockRadius = 10000000;
+                const unlockRadius = 200;
 
                 console.log(`📏 Quiz "${quiz.name}": ${Math.round(distance)}m (seuil: ${unlockRadius}m)`);
 
