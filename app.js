@@ -9,9 +9,9 @@ const cors = require("cors");
 
 const indexRouter = require("./routes/index");
 const usersRouter = require("./routes/users");
-const quizzRoutes = require('./routes/quizz');
-const locationRoutes = require('./routes/location');
-const duelRoutes = require('./routes/duels');
+const quizzRoutes = require("./routes/quizz");
+const locationRoutes = require("./routes/location");
+const duelRoutes = require("./routes/duels");
 
 const app = express();
 
@@ -23,13 +23,13 @@ app.use(express.urlencoded({ extended: false }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, "public")));
 
+app.get("/", (_, res) => res.send("Backend OK 🚀"));
+
 // Routes API ensuite
-app.use('/duels', duelRoutes);
-app.use('/users', locationRoutes)
-app.use('/quizz', quizzRoutes);
+app.use("/duels", duelRoutes);
+app.use("/users", locationRoutes);
+app.use("/quizz", quizzRoutes);
 app.use("/users", usersRouter);
 app.use("/", indexRouter);
-
-
 
 module.exports = app;

@@ -1,0 +1,26 @@
+# fly.toml app configuration file for ptiquiz-back
+
+app = "ptiquiz-back"
+primary_region = "cdg"
+
+[build]
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ["app"]
+
+[[vm]]
+  region = "cdg"
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1
+
+[[vm]]
+  region = "yyz"
+  memory = "1gb"
+  cpu_kind = "shared"
+  cpus = 1
