@@ -359,5 +359,114 @@ router.post('/test-cleanup', async (req, res) => {
 	}
 });
 
+// 🔓 PUT - Débloquer un quiz basé sur la position
+router.put('/unlock/:userId', async (req, res) => {
+	try {
+		const { userId } = req.params;
+		const { userLatitude, userLongitude, forceUnlockAll } = req.body;
 
+		console.log('🔍 Tentative déverrouillage pour user:', userId);
+		console.log('📍 Position:', userLatitude, userLongitude);
+
+		// Récupérer l'utilisateur
+		const user = await User.findById(userId);
+		if (!user) {
+			return res.json({ result: false, error: 'Utilisateur non trouvé' });
+		}
+
+		// Récupérer tous les quiz
+		const allQuiz = await Quiz.find({});
+		console.log(`📊 ${allQuiz.length} quiz trouvés en base`);
+
+		// Fonction de calcul de distance
+		const getDistanceInMeters = (lat1, lon1, lat2, lon2) => {
+			const R = 6371e3;
+			const toRad = (x) => (x * Math.PI) / 180;
+			const dLat = toRad(lat2 - lat1);
+			const dLon = toRad(lon2 - lon1);
+			const a = Math.sin(dLat / 2) ** 2 +
+				Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+			const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+			return R * c;
+		};
+
+		const currentUnlocked = user.unlockedQuizzes || [];
+		const newUnlocked = [];
+		const nearbyQuiz = [];
+
+		// 🎯 BOUCLE CORRIGÉE
+		allQuiz.forEach(quiz => {
+			const quizId = quiz._id.toString();
+
+			// Si forceUnlockAll est true, débloquer tous les quiz
+			if (forceUnlockAll) {
+				if (!currentUnlocked.includes(quizId)) {
+					newUnlocked.push(quizId);
+					nearbyQuiz.push({
+						id: quizId,
+						name: quiz.name,
+						distance: 0
+					});
+				}
+				return;
+			}
+
+			// Vérifier la distance si coordonnées fournies
+			if (userLatitude && userLongitude && quiz.location) {
+				const distance = getDistanceInMeters(
+					userLatitude,
+					userLongitude,
+					parseFloat(quiz.location.latitude),
+					parseFloat(quiz.location.longitude)
+				);
+
+				// 🎯 RAYON ÉNORME pour test
+				const unlockRadius = 200;
+
+				console.log(`📏 Quiz "${quiz.name}": ${Math.round(distance)}m (seuil: ${unlockRadius}m)`);
+
+				if (distance <= unlockRadius && !currentUnlocked.includes(quizId)) {
+					newUnlocked.push(quizId);
+					nearbyQuiz.push({
+						id: quizId,
+						name: quiz.name,
+						distance: Math.round(distance)
+					});
+				}
+			} else {
+				// 🐛 DEBUG - Log si problème de structure
+				console.log(`❌ Quiz "${quiz.name}" - Pas de coordonnées valides:`, {
+					hasUserCoords: !!(userLatitude && userLongitude),
+					hasQuizLocation: !!quiz.location,
+					quizLocation: quiz.location
+				});
+			}
+		});
+
+		// Mettre à jour la BDD si nouveaux déverrouillages
+		if (newUnlocked.length > 0) {
+			await User.findByIdAndUpdate(userId, {
+				$set: {
+					unlockedQuizzes: [...currentUnlocked, ...newUnlocked]
+				}
+			});
+
+			console.log(`🎉 ${newUnlocked.length} nouveau(x) quiz débloqué(s) !`);
+		}
+
+		res.json({
+			result: true,
+			newUnlocked: newUnlocked.length,
+			unlockedQuizzes: [...currentUnlocked, ...newUnlocked],
+			nearbyQuiz,
+			message: newUnlocked.length > 0
+				? `🎉 ${newUnlocked.length} nouveau(x) quiz débloqué(s) !`
+				: 'Aucun nouveau quiz à débloquer'
+		});
+
+	} catch (error) {
+		console.error('❌ Erreur déverrouillage:', error);
+		res.json({ result: false, error: error.message });
+	}
+});
 module.exports = router;
