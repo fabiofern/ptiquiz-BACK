@@ -1,11 +1,11 @@
-// models/quizz.js
+// models/quizz.js (MISE À JOUR RECOMMANDÉE)
 const mongoose = require('mongoose');
 
 const quizSchema = new mongoose.Schema({
     name: String,
-    location: {
-        latitude: String,
-        longitude: String,
+    location: { // Changer String en Number pour les coordonnées
+        latitude: { type: Number, required: true, min: -90, max: 90 },
+        longitude: { type: Number, required: true, min: -180, max: 180 },
     },
     arrondissement: String,
     ville: String,
@@ -23,6 +23,8 @@ const quizSchema = new mongoose.Schema({
             points: Number,
         },
     ],
+}, {
+    timestamps: true // Ajout de timestamps pour un meilleur suivi
 });
 
 module.exports = mongoose.model('quizz', quizSchema);

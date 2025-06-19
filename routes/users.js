@@ -1,12 +1,35 @@
 var express = require("express");
 var router = express.Router();
 const jwt = require('jsonwebtoken');
-const User = require("../database/models/User"); // chemin correct selon ton architecture
+const User = require("../database/models/User"); // Chemin correct vers le modèle User
+const Quiz = require("../database/models/Quiz"); // Import du modèle Quiz
+const UserLocation = require("../database/models/UserLocation"); // Import du modèle UserLocation
+
 const bcrypt = require("bcrypt");
 const uid2 = require("uid2");
 const { checkBody } = require("../modules/checkBody");
 const verifySecureToken = require("../middlewares/verifySecureToken");
 
+// Fonction utilitaire pour flouter les coordonnées pour la confidentialité
+const blurCoordinates = (latitude, longitude, blurFactor = 0.0001) => {
+	const blurredLat = latitude + (Math.random() - 0.5) * blurFactor;
+	const blurredLon = longitude + (Math.random() - 0.5) * blurFactor;
+	return { latitude: blurredLat, longitude: blurredLon };
+};
+
+// Fonction pour calculer la distance (nécessaire pour le déverrouillage des quiz et le rayon social)
+const getDistanceInMeters = (lat1, lon1, lat2, lon2) => {
+	const R = 6371e3; // Rayon de la Terre en mètres
+	const toRad = (x) => (x * Math.PI) / 180;
+	const dLat = toRad(lat2 - lat1);
+	const dLon = toRad(lon2 - lon1);
+	const a = Math.sin(dLat / 2) ** 2 +
+		Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+	const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+	return R * c;
+};
+
+// --- ROUTES ---
 
 router.get("/profile/:token", verifySecureToken, async (req, res) => {
 	try {
@@ -48,7 +71,6 @@ router.post("/addPoints", async (req, res) => {
 router.post("/signup", (req, res) => {
 	if (!checkBody(req.body, ["email", "password"])) {
 		return res.json({ result: false, error: "Missing or empty fields" });
-		;
 	}
 	User.findOne({ email: req.body.email }).then((data) => {
 		if (data) {
@@ -59,9 +81,7 @@ router.post("/signup", (req, res) => {
 				email: req.body.email,
 				password: bcrypt.hashSync(req.body.password, 10),
 				token: uid2(32),
-				// totalPoints: 0,
 				avatar: null,
-				// scenarios: [],
 			});
 			newUser.save().then((data) => {
 				const secureToken = jwt.sign({ userId: data._id }, process.env.JWT_SECRET, { expiresIn: "7d" });
@@ -71,7 +91,6 @@ router.post("/signup", (req, res) => {
 	})
 });
 
-// Dans routes/users.js - ajoutez cette route :
 router.put("/locationPermissions", async (req, res) => {
 	try {
 		const { token, foreground, background } = req.body;
@@ -119,11 +138,10 @@ router.post("/signin", async (req, res) => {
 		if (user && bcrypt.compareSync(req.body.password, user.password)) {
 			const newToken = uid2(32);
 
-			// Mettre à jour l'utilisateur et récupérer les nouvelles données
 			const updatedUser = await User.findOneAndUpdate(
 				{ email: req.body.email },
 				{ $set: { token: newToken } },
-				{ new: true } // Retourne l'utilisateur mis à jour avec le nouveau token
+				{ new: true }
 			);
 
 			if (updatedUser) {
@@ -135,7 +153,6 @@ router.post("/signin", async (req, res) => {
 					username: updatedUser.username,
 					avatar: updatedUser.avatar,
 					_id: updatedUser._id,
-					//  AJOUT DES CHAMPS MANQUANTS
 					score: updatedUser.score || 0,
 					completedQuizzes: updatedUser.completedQuizzes || {},
 					unlockedQuizzes: updatedUser.unlockedQuizzes || [],
@@ -164,7 +181,6 @@ router.post("/signin", async (req, res) => {
 	}
 });
 
-//// ROUTE UPDATEPROFIL : route pour modifier le username et l'image de l'avatar via le lien en BDD qui fait référence à l'image hébergée sur cloudinary
 router.put("/updateProfil", async (req, res) => {
 	try {
 		const { token, username, avatar } = req.body;
@@ -173,7 +189,6 @@ router.put("/updateProfil", async (req, res) => {
 			return res.json({ result: false, error: "Token manquant" });
 		}
 
-		// Création objet de modification
 		const update = {};
 		if (username) {
 			const user = await User.findOne({ username });
@@ -188,22 +203,19 @@ router.put("/updateProfil", async (req, res) => {
 			update.avatar = avatar;
 		}
 
-		//  MODIFICATION : Utiliser findOneAndUpdate pour récupérer les données
 		const updatedUser = await User.findOneAndUpdate(
 			{ token },
 			update,
-			{ new: true } // Retourne l'utilisateur mis à jour
+			{ new: true }
 		);
 
 		if (!updatedUser) {
 			return res.json({ result: false, error: "Utilisateur introuvable" });
 		}
 
-		//  RETOURNER LES DONNÉES MISES À JOUR
 		res.json({
 			result: true,
 			message: "Profil mis à jour",
-			// Données pour le frontend
 			username: updatedUser.username,
 			avatar: updatedUser.avatar
 		});
@@ -213,7 +225,6 @@ router.put("/updateProfil", async (req, res) => {
 	}
 });
 
-//// ROUTE DELETE TOKEN : route pour supprimer le token de l'utilisateur
 router.put("/deleteToken", async (req, res) => {
 	try {
 		const { token } = req.body;
@@ -231,37 +242,35 @@ router.put("/deleteToken", async (req, res) => {
 	}
 });
 
-
 router.post('/test-activate', async (req, res) => {
 	try {
 		console.log('🧪 Activation des faux users pour test...');
 
-		// Positions dans Paris pour les faux users
 		const testPositions = [
 			{
 				username: "JulieQuizPro",
 				coordinates: { latitude: 48.8606, longitude: 2.3472 },
-				speed: 3.5 // En mouvement à pied
+				speed: 3.5
 			},
 			{
 				username: "AishaVeteran",
 				coordinates: { latitude: 48.8676, longitude: 2.3633 },
-				speed: 4.2 // En mouvement
+				speed: 4.2
 			},
 			{
 				username: "LucasChampion",
 				coordinates: { latitude: 48.8540, longitude: 2.3359 },
-				speed: 2.8 // En mouvement lent
+				speed: 2.8
 			},
 			{
 				username: "EmmaExploratrice",
 				coordinates: { latitude: 48.8420, longitude: 2.3219 },
-				speed: 5.1 // En mouvement rapide
+				speed: 5.1
 			},
 			{
 				username: "KarimStriker",
 				coordinates: { latitude: 48.8826, longitude: 2.3379 },
-				speed: 3.0 // En mouvement
+				speed: 3.0
 			}
 		];
 
@@ -269,26 +278,23 @@ router.post('/test-activate', async (req, res) => {
 
 		for (const testUser of testPositions) {
 			try {
-				// Trouver l'utilisateur par username
 				const user = await User.findOne({ username: testUser.username });
 				if (!user) {
 					console.log(`❌ User ${testUser.username} non trouvé`);
 					continue;
 				}
 
-				// Flouter les coordonnées comme en vrai
 				const blurredCoords = blurCoordinates(
 					testUser.coordinates.latitude,
 					testUser.coordinates.longitude
 				);
 
-				// Créer/mettre à jour UserLocation
 				await UserLocation.findOneAndUpdate(
 					{ userId: user._id },
 					{
 						coordinates: blurredCoords,
 						speed: testUser.speed,
-						isVisible: true, // Forcer visible pour le test
+						isVisible: true,
 						lastMovement: new Date(),
 						lastUpdate: new Date()
 					},
@@ -316,12 +322,10 @@ router.post('/test-activate', async (req, res) => {
 	}
 });
 
-// 🧪 GET /users/test-status 
 router.get('/test-status', async (req, res) => {
 	try {
 		console.log('🔍 Vérification statut test...');
 
-		// Version simple sans populate
 		const activeUsers = await UserLocation.find({ isVisible: true });
 
 		console.log(`📊 ${activeUsers.length} utilisateurs actifs trouvés`);
@@ -342,7 +346,6 @@ router.get('/test-status', async (req, res) => {
 	}
 });
 
-// 🧹 POST /users/test-cleanup - Nettoyer les données de test
 router.post('/test-cleanup', async (req, res) => {
 	try {
 		const result = await UserLocation.deleteMany({});
@@ -359,114 +362,164 @@ router.post('/test-cleanup', async (req, res) => {
 	}
 });
 
-// 🔓 PUT - Débloquer un quiz basé sur la position
+// 🔓 PUT - Débloquer un quiz basé sur la position ET récupérer les utilisateurs à proximité
 router.put('/unlock/:userId', async (req, res) => {
 	try {
 		const { userId } = req.params;
 		const { userLatitude, userLongitude, forceUnlockAll } = req.body;
 
 		console.log('🔍 Tentative déverrouillage pour user:', userId);
-		console.log('📍 Position:', userLatitude, userLongitude);
+		console.log('📍 Position reçue:', userLatitude, userLongitude);
 
-		// Récupérer l'utilisateur
+		// Récupérer l'utilisateur principal
 		const user = await User.findById(userId);
 		if (!user) {
 			return res.json({ result: false, error: 'Utilisateur non trouvé' });
 		}
 
-		// Récupérer tous les quiz
+		// --- PARTIE GESTION DES QUIZ ---
 		const allQuiz = await Quiz.find({});
 		console.log(`📊 ${allQuiz.length} quiz trouvés en base`);
 
-		// Fonction de calcul de distance
-		const getDistanceInMeters = (lat1, lon1, lat2, lon2) => {
-			const R = 6371e3;
-			const toRad = (x) => (x * Math.PI) / 180;
-			const dLat = toRad(lat2 - lat1);
-			const dLon = toRad(lon2 - lon1);
-			const a = Math.sin(dLat / 2) ** 2 +
-				Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
-			const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-			return R * c;
-		};
-
 		const currentUnlocked = user.unlockedQuizzes || [];
-		const newUnlocked = [];
-		const nearbyQuiz = [];
+		const newUnlockedQuizIds = [];
+		const newlyUnlockedQuizNames = []; // Pour envoyer les noms au frontend
 
-		// 🎯 BOUCLE CORRIGÉE
 		allQuiz.forEach(quiz => {
 			const quizId = quiz._id.toString();
 
-			// Si forceUnlockAll est true, débloquer tous les quiz
 			if (forceUnlockAll) {
 				if (!currentUnlocked.includes(quizId)) {
-					newUnlocked.push(quizId);
-					nearbyQuiz.push({
-						id: quizId,
-						name: quiz.name,
-						distance: 0
-					});
+					newUnlockedQuizIds.push(quizId);
+					newlyUnlockedQuizNames.push(quiz.name);
 				}
 				return;
 			}
 
-			// Vérifier la distance si coordonnées fournies
-			if (userLatitude && userLongitude && quiz.location) {
+			// Vérifier la distance si coordonnées fournies et valides
+			// ATTENTION : J'utilise quiz.location.latitude et quiz.location.longitude
+			// car votre schéma Quiz utilise le champ 'location'.
+			// Si vous avez mis à jour le schéma Quiz pour avoir des Numbers, c'est parfait.
+			// Si c'est toujours des Strings dans votre DB, assurez-vous que parseFloat() les gère bien.
+			if (userLatitude && userLongitude && quiz.location?.latitude && quiz.location?.longitude) {
 				const distance = getDistanceInMeters(
 					userLatitude,
 					userLongitude,
-					parseFloat(quiz.location.latitude),
-					parseFloat(quiz.location.longitude)
+					parseFloat(quiz.location.latitude), // Assurez-vous que c'est bien quiz.location
+					parseFloat(quiz.location.longitude) // Assurez-vous que c'est bien quiz.location
 				);
 
-				// 🎯 RAYON ÉNORME pour test
-				const unlockRadius = 200;
+				const unlockRadius = 100; // Rayon de déverrouillage (100m)
 
-				console.log(`📏 Quiz "${quiz.name}": ${Math.round(distance)}m (seuil: ${unlockRadius}m)`);
+				// console.log(`📏 Quiz "${quiz.name}": ${Math.round(distance)}m (seuil: ${unlockRadius}m)`); // Décommenter pour débogage
 
 				if (distance <= unlockRadius && !currentUnlocked.includes(quizId)) {
-					newUnlocked.push(quizId);
-					nearbyQuiz.push({
-						id: quizId,
-						name: quiz.name,
-						distance: Math.round(distance)
-					});
+					newUnlockedQuizIds.push(quizId);
+					newlyUnlockedQuizNames.push(quiz.name);
 				}
 			} else {
-				// 🐛 DEBUG - Log si problème de structure
-				console.log(`❌ Quiz "${quiz.name}" - Pas de coordonnées valides:`, {
-					hasUserCoords: !!(userLatitude && userLongitude),
-					hasQuizLocation: !!quiz.location,
-					quizLocation: quiz.location
-				});
+				console.warn(`⚠️ Quiz "${quiz.name}" ignoré: Coordonnées de quiz invalides ou userLocation manquante. Quiz coords:`, quiz.location);
 			}
 		});
 
 		// Mettre à jour la BDD si nouveaux déverrouillages
-		if (newUnlocked.length > 0) {
+		if (newUnlockedQuizIds.length > 0) {
 			await User.findByIdAndUpdate(userId, {
 				$set: {
-					unlockedQuizzes: [...currentUnlocked, ...newUnlocked]
+					unlockedQuizzes: [...currentUnlocked, ...newUnlockedQuizIds]
 				}
 			});
+			console.log(`🎉 ${newUnlockedQuizIds.length} nouveau(x) quiz débloqué(s) pour ${user.username}!`);
+		}
 
-			console.log(`🎉 ${newUnlocked.length} nouveau(x) quiz débloqué(s) !`);
+		// --- NOUVELLE PARTIE : MISE À JOUR DE LA POSITION SOCIALE ET RÉCUPÉRATION DES UTILISATEURS À PROXIMITÉ ---
+		let nearbyUsers = [];
+		let isUserVisible = false;
+
+		if (userLatitude && userLongitude) {
+			// Flouter les coordonnées avant de les stocker
+			const blurredUserCoords = blurCoordinates(userLatitude, userLongitude);
+
+			// Mettre à jour la position de l'utilisateur actuel dans UserLocation
+			const updatedUserLocation = await UserLocation.findOneAndUpdate(
+				{ userId: user._id },
+				{
+					coordinates: blurredUserCoords,
+					lastUpdate: new Date(),
+					lastMovement: new Date(), // À ajuster si vous avez une logique de mouvement distincte
+					isVisible: true, // L'utilisateur est actif, donc potentiellement visible
+				},
+				{ upsert: true, new: true } // Crée si n'existe pas, renvoie le doc mis à jour
+			);
+
+			isUserVisible = updatedUserLocation.isVisible; // Récupérer le statut de visibilité réel
+
+			const socialRadiusKm = 2; // Rayon social : 2km
+			// Utilisation de la méthode statique findVisibleUsersNearby du modèle UserLocation
+			const allActiveNearbyUserLocations = await UserLocation.findVisibleUsersNearby(
+				userLatitude,
+				userLongitude,
+				socialRadiusKm
+			);
+
+			// Filtrer et formater les utilisateurs proches pour le frontend
+			for (const otherUserLocation of allActiveNearbyUserLocations) {
+				// Exclure l'utilisateur actuel
+				if (otherUserLocation.userId._id.toString() === user._id.toString()) {
+					continue;
+				}
+
+				if (otherUserLocation.coordinates?.latitude && otherUserLocation.coordinates?.longitude) {
+					const distance = getDistanceInMeters(
+						userLatitude,
+						userLongitude,
+						otherUserLocation.coordinates.latitude,
+						otherUserLocation.coordinates.longitude
+					);
+
+					// Re-vérifier la distance car findVisibleUsersNearby utilise une approximation
+					if (distance <= (socialRadiusKm * 1000)) { // Convertir km en mètres pour la vérification exacte
+						nearbyUsers.push({
+							id: otherUserLocation.userId._id,
+							username: otherUserLocation.userId.username,
+							avatar: otherUserLocation.userId.avatar,
+							location: { // Format attendu par le frontend
+								latitude: otherUserLocation.coordinates.latitude,
+								longitude: otherUserLocation.coordinates.longitude,
+							},
+							// Ajouter les champs nécessaires pour le profil modal ou UserMarker
+							duelStats: otherUserLocation.userId.duelStats || {},
+							achievements: otherUserLocation.userId.achievements || {},
+							// badges: otherUserLocation.userId.badges || [], // Si vous voulez les badges directement
+							// score: otherUserLocation.userId.score || 0, // Si vous voulez le score directement
+							distance: Math.round(distance) // Utile pour débogage ou affichage
+						});
+					}
+				} else {
+					console.warn(`⚠️ Utilisateur social "${otherUserLocation.userId?.username}" ignoré: Coordonnées invalides dans UserLocation.`, otherUserLocation.coordinates);
+				}
+			}
+			console.log(`👥 ${nearbyUsers.length} utilisateurs à proximité trouvés.`);
+		} else {
+			console.warn(`⚠️ Impossible de mettre à jour la position sociale: userLatitude ou userLongitude manquant.`);
 		}
 
 		res.json({
 			result: true,
-			newUnlocked: newUnlocked.length,
-			unlockedQuizzes: [...currentUnlocked, ...newUnlocked],
-			nearbyQuiz,
-			message: newUnlocked.length > 0
-				? `🎉 ${newUnlocked.length} nouveau(x) quiz débloqué(s) !`
-				: 'Aucun nouveau quiz à débloquer'
+			user: {
+				unlockedQuizzes: [...currentUnlocked, ...newUnlockedQuizIds],
+				rewards: user.rewards,
+			},
+			newUnlockedCount: newUnlockedQuizIds.length,
+			unlockedQuizNames: newlyUnlockedQuizNames,
+			nearbyUsers: nearbyUsers,
+			isVisible: isUserVisible,
 		});
 
 	} catch (error) {
-		console.error('❌ Erreur déverrouillage:', error);
-		res.json({ result: false, error: error.message });
+		console.error('❌ Erreur déverrouillage et social:', error);
+		res.status(500).json({ result: false, error: 'Erreur serveur interne', details: error.message });
 	}
 });
+
 module.exports = router;
