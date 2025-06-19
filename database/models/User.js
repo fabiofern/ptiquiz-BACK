@@ -77,12 +77,31 @@ const userSchema = mongoose.Schema({
 		titles: { type: Array, default: [] }
 	},
 
-	// 🏆 Statistiques et récompenses
+	// 🏆 Statistiques et récompenses (VOS CHAMPS ACTUELS)
 	badges: [{
 		name: String,
 		unlockedAt: Date,
 		quizId: String
 	}],
+
+	// --- NOUVEAUX CHAMPS IMPORTANTS POUR LES DONNÉES DUEL ET RÉCOMPENSES ---
+	// Ajout de duelStats (pour les stats de duels)
+	duelStats: {
+		victories: { type: Number, default: 0 },
+		defeats: { type: Number, default: 0 },
+		winRate: { type: Number, default: 0 }, // Calculé ou stocké
+		rank: { type: String, default: 'Recrue' }, // Rang duelliste
+		vsYou: { type: Array, default: [] } // Historique des duels contre un utilisateur spécifique
+	},
+	// Ajout de achievements (pour le trophée principal et les stats générales du profil)
+	achievements: {
+		totalBadges: { type: Number, default: 0 }, // Nombre total de badges
+		perfectQuizzes: { type: Number, default: 0 }, // Nombre de quiz parfaits
+		bestStreak: { type: Number, default: 0 }, // Meilleure série
+		trophy: { type: String, default: 'Explorateur TiQuiz' }, // Texte du trophée principal (ex: "Trophée Diamant")
+		title: { type: String, default: 'Aventurier TiQuiz' } // Titre du joueur (ex: "Maître des énigmes")
+	},
+	// ---------------------------------------------------------------------
 
 	// 📊 Statistiques de jeu
 	stats: {
@@ -163,6 +182,11 @@ userSchema.methods.updateStats = function () {
 	this.stats.averageScore = totalPossible > 0 ? Math.round((totalScore / totalPossible) * 100) : 0;
 	this.stats.themeStats = themeStats;
 	this.stats.lastPlayedAt = new Date();
+
+	// Mettre à jour les achievements basés sur les stats
+	this.achievements.perfectQuizzes = perfectCount;
+	// this.achievements.totalBadges = this.badges.length; // Assurez-vous que badges est bien un Array si c'est comme ça que vous le gérez
+	// Logique pour mettre à jour 'bestStreak' et 'trophy' / 'title' devrait être dans RewardsService
 };
 
 // 🎯 Méthode pour débloquer un quiz
@@ -242,7 +266,10 @@ userSchema.methods.getRecommendedThemes = function () {
 
 	return recommendations;
 };
+
 userSchema.methods.canBeSeenBy = function (otherUser) {
+	// Note: this.socialSettings.mapVisibility et this.socialSettings.shareLocation
+	// sont déjà des Boolean par défaut dans votre schéma.
 	return this.socialSettings.mapVisibility &&
 		this.socialSettings.shareLocation &&
 		this.socialSettings.showProfile;
@@ -255,7 +282,10 @@ userSchema.methods.getPublicMapInfo = function () {
 		username: this.username,
 		avatar: this.avatar,
 		score: this.score, // Utilise ton score existant
-		stats: {
+		// MODIFIÉ : Inclure les objets complets duelStats et achievements
+		duelStats: this.duelStats || {}, // Assure qu'il y a un objet même s'il est vide
+		achievements: this.achievements || {}, // Assure qu'il y a un objet même s'il est vide
+		stats: { // Ces stats sont déjà bien définies dans votre schéma
 			totalQuizCompleted: this.stats.totalQuizCompleted,
 			averageScore: this.stats.averageScore,
 			bestStreak: this.stats.bestStreak
